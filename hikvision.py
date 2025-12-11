@@ -25,7 +25,6 @@ IPS = load_ips()
 # XML helpers to get model/serial/firmware robustly
 # ------------------------------------------------------
 def safe_findtext(root, tags, ns=None):
-    """Try multiple tag names (with or without namespace)."""
     if ns:
         for t in tags:
             v = root.findtext(f".//ns:{t}", default=None, namespaces={"ns": ns})
@@ -36,10 +35,10 @@ def safe_findtext(root, tags, ns=None):
             v = root.findtext(f".//{t}")
             if v:
                 return v
-    # search all tags without namespace
+
     for elem in root.iter():
         if elem.tag:
-            name = elem.tag.split("}")[-1]  # strip namespace if exists
+            name = elem.tag.split("}")[-1]
             if name.lower() in [x.lower() for x in tags]:
                 return elem.text
     return None
@@ -77,13 +76,18 @@ def get_device_info(ip):
             model = extract_from_raw_xml_text(raw, r"<(?:model|deviceModel)>([^<]+)</")
             serial = extract_from_raw_xml_text(raw, r"<serialNumber>([^<]+)</")
             firmware = extract_from_raw_xml_text(raw, r"<firmwareVersion>([^<]+)</")
+            build = extract_from_raw_xml_text(raw, r"<firmwareReleasedDate>([^<]+)</")
+
+            # >>> ADD YOUR CONCAT HERE <<<
+            if firmware and build:
+                firmware = f"{firmware} build {build}"
+
             return [
                 model or "",
                 serial or "",
                 firmware or "",
             ]
 
-        # Hikvision namespace
         ns_url = "http://www.hikvision.com/ver20/XMLSchema"
 
         model = safe_findtext(root, ["model", "deviceModel"], ns=ns_url) or \
@@ -91,6 +95,11 @@ def get_device_info(ip):
 
         serial = safe_findtext(root, ["serialNumber", "serial"])
         firmware = safe_findtext(root, ["firmwareVersion", "softwareVersion"])
+        build = safe_findtext(root, ["firmwareReleasedDate", "releasedDate"])
+
+        # >>> ADD YOUR CONCAT HERE <<<
+        if firmware and build:
+            firmware = f"{firmware} build {build}"
 
         return [
             (model or "").strip(),
